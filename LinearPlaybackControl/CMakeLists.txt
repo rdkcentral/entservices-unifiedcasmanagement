@@ -17,9 +17,11 @@
 
 set(PLUGIN_NAME LinearPlaybackControl)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
+set(PLUGIN_IMPLEMENTATION ${MODULE_NAME}Implementation)
 
 set(PLUGIN_LINEAR_PLAYBACK_CONTROL_AUTOSTART true CACHE STRING true)
 set(PLUGIN_LINEARPLAYBACKCTL_STARTUPORDER "" CACHE STRING "To configure startup order of LinearPlaybackControl plugin")
+set(PLUGIN_LINEAR_PLAYBACK_CONTROL_MODE "Off" CACHE STRING "Controls if the plugin should run in its own process, in process or remote")
 
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(${NAMESPACE}Definitions REQUIRED)
@@ -27,14 +29,14 @@ find_package(CompileSettingsDebug CONFIG REQUIRED)
 
 add_library(${MODULE_NAME} SHARED
     LinearPlaybackControl.cpp
-    LinearPlaybackControlJsonRpc.cpp
     Module.cpp
-    DemuxerStreamFsFCC.cpp
-        )
+)
 
 set_target_properties(${MODULE_NAME} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES)
+
+target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_${PLUGIN_NAME})
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
@@ -44,24 +46,41 @@ target_include_directories( ${MODULE_NAME}
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
+install(TARGETS ${MODULE_NAME}
+    DESTINATION lib/${STORAGE_DIRECTORY}/plugins)
+
+# Build the Implementation library
+add_library(${PLUGIN_IMPLEMENTATION} SHARED
+    LinearPlaybackControlImplementation.cpp
+    Module.cpp
+    DemuxerStreamFsFCC.cpp
+    LinearConfig.cpp
+)
+
+set_target_properties(${PLUGIN_IMPLEMENTATION} PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES)
+
 if (RDK_SERVICE_L2_TEST)
     message ("L2 test Enabled")
     find_library(TESTMOCKLIB_LIBRARIES NAMES TestMocklib)
     if (TESTMOCKLIB_LIBRARIES)
         message ("linking mock libraries ${TESTMOCKLIB_LIBRARIES} library")
-        target_link_libraries(${MODULE_NAME} PRIVATE ${TESTMOCKLIB_LIBRARIES})
+        target_link_libraries(${PLUGIN_IMPLEMENTATION} PRIVATE ${TESTMOCKLIB_LIBRARIES})
     else (TESTMOCKLIB_LIBRARIES)
         message ("Require ${TESTMOCKLIB_LIBRARIES} library")
     endif (TESTMOCKLIB_LIBRARIES)
 endif()
 
-target_link_libraries(${MODULE_NAME}
+target_include_directories(${PLUGIN_IMPLEMENTATION} PRIVATE ../helpers)
+
+target_link_libraries(${PLUGIN_IMPLEMENTATION}
     PRIVATE
         CompileSettingsDebug::CompileSettingsDebug
         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
         ${NAMESPACE}Definitions::${NAMESPACE}Definitions)
 
-install(TARGETS ${MODULE_NAME}
+install(TARGETS ${PLUGIN_IMPLEMENTATION}
     DESTINATION lib/${STORAGE_DIRECTORY}/plugins)
 
 write_config(${PLUGIN_NAME})

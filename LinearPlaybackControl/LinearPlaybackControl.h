@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's LICENSE file the
  * following copyright and licenses apply:
  *
- * Copyright 2022 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,100 +20,92 @@
 #pragma once
 
 #include "Module.h"
-#include "DemuxerStreamFsFCC.h"
-#include "IDemuxer.h"
-#include "DemuxerStreamFsFCC.h"
-#include "FileSelectListener.h"
 #include <interfaces/json/JsonData_LinearPlaybackControl.h>
+#include <interfaces/json/JLinearPlaybackControl.h>
+#include <interfaces/ILinearPlaybackControl.h>
+#include "tracing/Logging.h"
 
-namespace WPEFramework {
-namespace Plugin {
-
-    using endpoint_func = uint32_t(IDemuxer*);
-
-    class LinearPlaybackControl
-        : public PluginHost::IPlugin
-        , public PluginHost::JSONRPC {
-
-    public:
-        LinearPlaybackControl(const LinearPlaybackControl&) = delete;
-        LinearPlaybackControl& operator=(const LinearPlaybackControl&) = delete;
-
-#ifdef __WINDOWS__
-#pragma warning(disable : 4355)
-#endif
-        LinearPlaybackControl()
-            : _skipURL(0)
-            , _service(nullptr)
+namespace WPEFramework
+{
+    namespace Plugin
+    {
+        class LinearPlaybackControl : public PluginHost::IPlugin, public PluginHost::JSONRPC
         {
-            RegisterAll();
-        }
-#ifdef __WINDOWS__
-#pragma warning(default : 4355)
-#endif
-        virtual ~LinearPlaybackControl()
-        {
-            UnregisterAll();
-        }
+        private:
+            class Notification : public RPC::IRemoteConnection::INotification,
+                                 public Exchange::ILinearPlaybackControl::INotification
+            {
+            private:
+                Notification() = delete;
+                Notification(const Notification&) = delete;
+                Notification& operator=(const Notification&) = delete;
 
-    public:
-        BEGIN_INTERFACE_MAP(LinearPlaybackControl)
-        INTERFACE_ENTRY(PluginHost::IPlugin)
-        INTERFACE_ENTRY(PluginHost::IDispatcher)
-        END_INTERFACE_MAP
+            public:
+                explicit Notification(LinearPlaybackControl* parent)
+                    : _parent(*parent)
+                {
+                    ASSERT(parent != nullptr);
+                }
 
-    public:
-        //  IPlugin methods
-        // -------------------------------------------------------------------------------------------------------
-        // First time initialization. Whenever a plugin is loaded, it is offered a Service object with relevant
-        // information and services for this particular plugin. The Service object contains configuration information that
-        // can be used to initialize the plugin correctly. If Initialization succeeds, return nothing (empty string)
-        // If there is an error, return a string describing the issue why the initialisation failed.
-        // The Service object is *NOT* reference counted, lifetime ends if the plugin is deactivated.
-        // The lifetime of the Service object is guaranteed till the deinitialize method is called.
-        const string Initialize(PluginHost::IShell* service) override;
+                virtual ~Notification()
+                {
+                }
 
-        // The plugin is unloaded from WPEFramework. This is call allows the module to notify clients
-        // or to persist information if needed. After this call the plugin will unlink from the service path
-        // and be deactivated. The Service object is the same as passed in during the Initialize.
-        // After theis call, the lifetime of the Service object ends.
-        void Deinitialize(PluginHost::IShell* service) override;
+                BEGIN_INTERFACE_MAP(Notification)
+                INTERFACE_ENTRY(Exchange::ILinearPlaybackControl::INotification)
+                INTERFACE_ENTRY(RPC::IRemoteConnection::INotification)
+                END_INTERFACE_MAP
 
-        // Returns an interface to a JSON struct that can be used to return specific metadata information with respect
-        // to this plugin. This Metadata can be used by the MetData plugin to publish this information to the ouside world.
-        string Information() const override;
+                void Activated(RPC::IRemoteConnection*) override
+                {
+                    syslog(LOG_INFO, "LinearPlaybackControl Notification Activated");
+                }
 
-        // Public accessors for testing
-        std::unique_ptr<DemuxerStreamFsFCC>& getDemuxer() { return _demuxer; }
-        bool& getStreamFSEnabled() { return _isStreamFSEnabled; }
+                void Deactivated(RPC::IRemoteConnection* connection) override
+                {
+                    syslog(LOG_INFO, "LinearPlaybackControl Notification Deactivated");
+                    _parent.Deactivated(connection);
+                }
 
-    protected:
-        void RegisterAll();
-        void UnregisterAll();
-        uint32_t endpoint_set_channel(const string& demuxerId, const JsonData::LinearPlaybackControl::ChannelData& params);
-        uint32_t endpoint_get_channel(const string& demuxerId, JsonData::LinearPlaybackControl::ChannelData& params) const;
-        uint32_t endpoint_set_seek(const string& demuxerId, const JsonData::LinearPlaybackControl::SeekData& params);
-        uint32_t endpoint_get_seek(const string& demuxerId, JsonData::LinearPlaybackControl::SeekData& params) const;
-        uint32_t endpoint_set_trickplay(const string& demuxerId, const JsonData::LinearPlaybackControl::TrickplayData& params);
-        uint32_t endpoint_get_trickplay(const string& demuxerId, JsonData::LinearPlaybackControl::TrickplayData& params) const;
-        uint32_t endpoint_get_status(const string& demuxerId, JsonData::LinearPlaybackControl::StatusData& params) const;
-        uint32_t endpoint_set_tracing(const JsonData::LinearPlaybackControl::TracingData& params);
-        uint32_t endpoint_get_tracing(JsonData::LinearPlaybackControl::TracingData& params) const;
+                void Speedchanged(const int16_t speed, const uint8_t muxId) override
+                {
+                    syslog(LOG_INFO, "Speedchanged: speed=%d, muxId=%d", speed, muxId);
+                    Exchange::JLinearPlaybackControl::Event::Speedchanged(_parent, speed, muxId);
+                }
 
-        // Get the concrete demuxer implementation and invoke a lambda function for interacting with the actual interface.
-        // 0-255 reserved for Nokia FCC
-        // QAM range is TBD.
-        uint32_t callDemuxer(const string& demuxerId, const std::function<endpoint_func>& func) const;
+            private:
+                LinearPlaybackControl& _parent;
+            };
 
-        void speedchangedNotify(const std::string &data);
+        public:
+            // We do not allow this plugin to be copied !!
+            LinearPlaybackControl(const LinearPlaybackControl&) = delete;
+            LinearPlaybackControl& operator=(const LinearPlaybackControl&) = delete;
 
-    private:
-        uint32_t _skipURL;
-        PluginHost::IShell* _service;
-        std::string _mountPoint;
-        bool _isStreamFSEnabled;
-        std::unique_ptr<DemuxerStreamFsFCC> _demuxer;
-        std::unique_ptr<FileSelectListener> _trickPlayFileListener;
-};
-} //namespace Plugin
-} //namespace WPEFramework
+            LinearPlaybackControl();
+            virtual ~LinearPlaybackControl();
+
+            BEGIN_INTERFACE_MAP(LinearPlaybackControl)
+            INTERFACE_ENTRY(PluginHost::IPlugin)
+            INTERFACE_ENTRY(PluginHost::IDispatcher)
+            INTERFACE_AGGREGATE(Exchange::ILinearPlaybackControl, _linearPlaybackControl)
+            END_INTERFACE_MAP
+
+            //  IPlugin methods
+            // -------------------------------------------------------------------------------------------------------
+            const string Initialize(PluginHost::IShell* service) override;
+            void Deinitialize(PluginHost::IShell* service) override;
+            string Information() const override;
+
+        private:
+            void Deactivated(RPC::IRemoteConnection* connection);
+
+        private:
+            PluginHost::IShell* _service{};
+            uint32_t _connectionId{};
+            Exchange::ILinearPlaybackControl* _linearPlaybackControl{};
+            Core::Sink<Notification> _linearPlaybackControlNotification;
+        };
+
+    } // namespace Plugin
+} // namespace WPEFramework
