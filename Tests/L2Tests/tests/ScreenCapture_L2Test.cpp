@@ -281,13 +281,27 @@ TEST_F(ScreenCaptureTest, Upload_Success)
     JsonObject result;
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    ASSERT_TRUE(sockfd != -1);
+    if (sockfd == -1) {
+        TEST_LOG("Failed to create socket");
+        EXPECT_TRUE(false) << "Socket creation failed";
+        return;
+    }
     sockaddr_in sockaddr;
     sockaddr.sin_family = AF_INET;
     sockaddr.sin_addr.s_addr = INADDR_ANY;
     sockaddr.sin_port = htons(11111);
-    ASSERT_FALSE(bind(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0);
-    ASSERT_FALSE(listen(sockfd, 10) < 0);
+    if (bind(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0) {
+        TEST_LOG("Failed to bind socket");
+        close(sockfd);
+        EXPECT_TRUE(false) << "Socket bind failed";
+        return;
+    }
+    if (listen(sockfd, 10) < 0) {
+        TEST_LOG("Failed to listen on socket");
+        close(sockfd);
+        EXPECT_TRUE(false) << "Socket listen failed";
+        return;
+    }
     fd_set set;
     struct timeval timeout;
 
@@ -335,9 +349,16 @@ TEST_F(ScreenCaptureTest, Upload_Success)
          else {
              auto addrlen = sizeof(sockaddr);
              const int connection = accept(sockfd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
-             ASSERT_FALSE(connection < 0);
+             if (connection < 0) {
+                 TEST_LOG("Failed to accept connection");
+                 return;
+             }
              char buffer[2048] = { 0 };
-             ASSERT_TRUE(read(connection, buffer, 2048) > 0);
+             if (read(connection, buffer, 2048) <= 0) {
+                 TEST_LOG("Failed to read from connection");
+                 close(connection);
+                 return;
+             }
 
              std::string reqHeader(buffer);
              EXPECT_TRUE(std::string::npos != reqHeader.find("Content-Type: image/png"));
@@ -355,8 +376,14 @@ TEST_F(ScreenCaptureTest, Upload_Success)
     TEST_LOG("After InvokeServiceMethod ***\n");
     signalled = notify.WaitForRequestStatus(JSON_TIMEOUT, ScreenCapture_UploadComplete);
     EXPECT_TRUE(signalled & ScreenCapture_UploadComplete);
-    free(buffer);
-    thread.join();
+    
+    // Cleanup
+    if (buffer) {
+        free(buffer);
+    }
+    if (thread.joinable()) {
+        thread.join();
+    }
     close(sockfd);
     TEST_LOG("End of test case ***\n");
 }
@@ -369,13 +396,27 @@ TEST_F(ScreenCaptureTest, Upload_Failed)
     JsonObject result;
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    ASSERT_TRUE(sockfd != -1);
+    if (sockfd == -1) {
+        TEST_LOG("Failed to create socket");
+        EXPECT_TRUE(false) << "Socket creation failed";
+        return;
+    }
     sockaddr_in sockaddr;
     sockaddr.sin_family = AF_INET;
     sockaddr.sin_addr.s_addr = INADDR_ANY;
     sockaddr.sin_port = htons(11111);
-    ASSERT_FALSE(bind(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0);
-    ASSERT_FALSE(listen(sockfd, 10) < 0);
+    if (bind(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0) {
+        TEST_LOG("Failed to bind socket");
+        close(sockfd);
+        EXPECT_TRUE(false) << "Socket bind failed";
+        return;
+    }
+    if (listen(sockfd, 10) < 0) {
+        TEST_LOG("Failed to listen on socket");
+        close(sockfd);
+        EXPECT_TRUE(false) << "Socket listen failed";
+        return;
+    }
     fd_set set;
     struct timeval timeout;
 
@@ -397,9 +438,16 @@ TEST_F(ScreenCaptureTest, Upload_Failed)
          else {
              auto addrlen = sizeof(sockaddr);
              const int connection = accept(sockfd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
-             ASSERT_FALSE(connection < 0);
+             if (connection < 0) {
+                 TEST_LOG("Failed to accept connection");
+                 return;
+             }
              char buffer[2048] = { 0 };
-             ASSERT_TRUE(read(connection, buffer, 2048) > 0);
+             if (read(connection, buffer, 2048) <= 0) {
+                 TEST_LOG("Failed to read from connection");
+                 close(connection);
+                 return;
+             }
 
              std::string reqHeader(buffer);
              EXPECT_TRUE(std::string::npos != reqHeader.find("Content-Type: image/png"));
@@ -415,7 +463,303 @@ TEST_F(ScreenCaptureTest, Upload_Failed)
     EXPECT_EQ(Core::ERROR_NONE, status);
     TEST_LOG("After InvokeServiceMethod ***\n");
     signalled = notify.WaitForRequestStatus(JSON_TIMEOUT, ScreenCapture_UploadComplete);
-    thread.join();
+    
+    // Cleanup
+    if (thread.joinable()) {
+        thread.join();
+    }
     close(sockfd);
     TEST_LOG("End of test case ***\n");
 }
+
+TEST_F(ScreenCaptureTest, SendScreenshot_Success)
+{
+    uint32_t signalled = ScreenCapture_StateInvalid;
+    uint32_t status = Core::ERROR_GENERAL;
+    JsonObject params;
+    JsonObject result;
+
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+        TEST_LOG("Failed to create socket");
+        EXPECT_TRUE(false) << "Socket creation failed";
+        return;
+    }
+    sockaddr_in sockaddr;
+    sockaddr.sin_family = AF_INET;
+    sockaddr.sin_addr.s_addr = INADDR_ANY;
+    sockaddr.sin_port = htons(11113);
+    if (bind(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0) {
+        TEST_LOG("Failed to bind socket");
+        close(sockfd);
+        EXPECT_TRUE(false) << "Socket bind failed";
+        return;
+    }
+    if (listen(sockfd, 10) < 0) {
+        TEST_LOG("Failed to listen on socket");
+        close(sockfd);
+        EXPECT_TRUE(false) << "Socket listen failed";
+        return;
+    }
+    fd_set set;
+    struct timeval timeout;
+
+    DRMScreenCapture drmHandle = {0, 1280, 720, 5120, 32};
+    uint8_t *buffer = (uint8_t *)malloc(5120 * 720);
+    if (!buffer) {
+        TEST_LOG("Failed to allocate buffer memory");
+        close(sockfd);
+        EXPECT_TRUE(false) << "Memory allocation failed";
+        return;
+    }
+    memset(buffer, 0xff, 5120 * 720);
+
+    EXPECT_CALL(*p_drmScreenCaptureApiImplMock, Init())
+        .Times(1)
+        .WillOnce(
+            ::testing::Return(&drmHandle));
+
+    ON_CALL(*p_drmScreenCaptureApiImplMock, GetScreenInfo(::testing::_))
+        .WillByDefault(
+            ::testing::Return(true));
+
+    ON_CALL(*p_drmScreenCaptureApiImplMock, ScreenCapture(::testing::_, ::testing::_, ::testing::_))
+        .WillByDefault(
+            ::testing::Invoke(
+                [&](DRMScreenCapture *handle, uint8_t *output, uint32_t size)
+                {
+                    memcpy(output, buffer, size);
+                    return true;
+                }));
+
+    EXPECT_CALL(*p_drmScreenCaptureApiImplMock, Destroy(::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Return(true));
+
+    // Mock RFC configuration for SendScreenshot
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.Enable"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "true");
+                return WDMP_SUCCESS;
+            }));
+
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.URL"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "http://127.0.0.1:11113");
+                return WDMP_SUCCESS;
+            }));
+
+    // Initialize the set
+    FD_ZERO(&set);
+    FD_SET(sockfd, &set);
+
+    // Set the timeout to 5 seconds
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+
+    std::thread thread = std::thread([&]()
+    {
+         int rv = select(sockfd + 1, &set, NULL, NULL, &timeout);
+         if (rv == 0) {
+             // Timeout occurred, no connection was made
+             TEST_LOG("Timeout occurred, closing socket.");
+         }
+         else {
+             auto addrlen = sizeof(sockaddr);
+             const int connection = accept(sockfd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
+             if (connection < 0) {
+                 TEST_LOG("Failed to accept connection");
+                 return;
+             }
+             char buffer[2048] = { 0 };
+             if (read(connection, buffer, 2048) <= 0) {
+                 TEST_LOG("Failed to read from connection");
+                 close(connection);
+                 return;
+             }
+
+             std::string reqHeader(buffer);
+             EXPECT_TRUE(std::string::npos != reqHeader.find("Content-Type: image/png"));
+
+             std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+             send(connection, response.c_str(), response.size(), 0);
+
+             close(connection);
+    } });
+
+    params["callGUID"] = "test-guid-l2-success";
+    status = InvokeServiceMethod("org.rdk.ScreenCapture", "sendScreenshot", params, result);
+    EXPECT_EQ(Core::ERROR_NONE, status);
+    EXPECT_TRUE(result["success"].Boolean());
+    TEST_LOG("After InvokeServiceMethod ***\n");
+    signalled = notify.WaitForRequestStatus(JSON_TIMEOUT, ScreenCapture_UploadComplete);
+    EXPECT_TRUE(signalled & ScreenCapture_UploadComplete);
+    
+    // Cleanup
+    if (buffer) {
+        free(buffer);
+    }
+    if (thread.joinable()) {
+        thread.join();
+    }
+    close(sockfd);
+}
+
+TEST_F(ScreenCaptureTest, SendScreenshot_RFCDisabled)
+{
+    uint32_t status = Core::ERROR_GENERAL;
+    JsonObject params;
+    JsonObject result;
+
+    // Mock RFC with ScreenCapture disabled
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.Enable"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "false");
+                return WDMP_SUCCESS;
+            }));
+
+    params["callGUID"] = "test-guid-l2-disabled";
+    status = InvokeServiceMethod("org.rdk.ScreenCapture", "sendScreenshot", params, result);
+    EXPECT_EQ(Core::ERROR_GENERAL, status);
+}
+
+TEST_F(ScreenCaptureTest, SendScreenshot_RFCEnableKeyFailure)
+{
+    uint32_t status = Core::ERROR_GENERAL;
+    JsonObject params;
+    JsonObject result;
+
+    // Mock RFC Enable key retrieval failure
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.Enable"), ::testing::_))
+        .WillOnce(::testing::Return(WDMP_FAILURE));
+
+    params["callGUID"] = "test-guid-l2-rfc-fail";
+    status = InvokeServiceMethod("org.rdk.ScreenCapture", "sendScreenshot", params, result);
+    EXPECT_EQ(Core::ERROR_GENERAL, status);
+}
+
+TEST_F(ScreenCaptureTest, SendScreenshot_RFCURLKeyFailure)
+{
+    uint32_t status = Core::ERROR_GENERAL;
+    JsonObject params;
+    JsonObject result;
+
+    // Mock successful Enable but failed URL retrieval
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.Enable"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "true");
+                return WDMP_SUCCESS;
+            }));
+
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.URL"), ::testing::_))
+        .WillOnce(::testing::Return(WDMP_FAILURE));
+
+    params["callGUID"] = "test-guid-l2-url-fail";
+    status = InvokeServiceMethod("org.rdk.ScreenCapture", "sendScreenshot", params, result);
+    EXPECT_EQ(Core::ERROR_GENERAL, status);
+}
+
+TEST_F(ScreenCaptureTest, SendScreenshot_EmptyCallGUID)
+{
+    uint32_t status = Core::ERROR_GENERAL;
+    JsonObject params;
+    JsonObject result;
+
+    TEST_LOG("Testing SendScreenshot with empty callGUID");
+
+    // Pass an empty string for callGUID 
+    params["callGUID"] = "";
+    
+    status = InvokeServiceMethod("org.rdk.ScreenCapture", "sendScreenshot", params, result);
+    EXPECT_EQ(Core::ERROR_GENERAL, status);
+}
+
+TEST_F(ScreenCaptureTest, SendScreenshot_EmptyURL)
+{
+    uint32_t status = Core::ERROR_GENERAL;
+    JsonObject params;
+    JsonObject result;
+
+    // Mock successful Enable but empty URL value
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.Enable"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "true");
+                return WDMP_SUCCESS;
+            }));
+
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.URL"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "");
+                return WDMP_SUCCESS;
+            }));
+
+    params["callGUID"] = "test-guid-l2-empty-url";
+    status = InvokeServiceMethod("org.rdk.ScreenCapture", "sendScreenshot", params, result);
+    EXPECT_EQ(Core::ERROR_GENERAL, status);
+}
+
+TEST_F(ScreenCaptureTest, SendScreenshot_UploadFailure)
+{
+    uint32_t status = Core::ERROR_GENERAL;
+    JsonObject params;
+    JsonObject result;
+
+    DRMScreenCapture drmHandle = {0, 1280, 720, 5120, 32};
+    uint8_t *buffer = (uint8_t *)malloc(5120 * 720);
+    memset(buffer, 0xff, 5120 * 720);
+
+    EXPECT_CALL(*p_drmScreenCaptureApiImplMock, Init())
+        .Times(1)
+        .WillOnce(
+            ::testing::Return(&drmHandle));
+
+    ON_CALL(*p_drmScreenCaptureApiImplMock, GetScreenInfo(::testing::_))
+        .WillByDefault(
+            ::testing::Return(true));
+
+    ON_CALL(*p_drmScreenCaptureApiImplMock, ScreenCapture(::testing::_, ::testing::_, ::testing::_))
+        .WillByDefault(
+            ::testing::Invoke(
+                [&](DRMScreenCapture *handle, uint8_t *output, uint32_t size)
+                {
+                    memcpy(output, buffer, size);
+                    return true;
+                }));
+
+    EXPECT_CALL(*p_drmScreenCaptureApiImplMock, Destroy(::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Return(true));
+
+    // Mock RFC configuration with invalid URL to cause upload failure
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.Enable"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "true");
+                return WDMP_SUCCESS;
+            }));
+
+    EXPECT_CALL(*p_rfcApiImplMock, getRFCParameter(::testing::_, ::testing::StrEq("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ScreenCapture.URL"), ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](const char*, const char*, RFC_ParamData_t* param) {
+                strcpy(param->value, "http://127.0.0.1:1");
+                return WDMP_SUCCESS;
+            }));
+
+    params["callGUID"] = "test-guid-l2-upload-fail";
+    status = InvokeServiceMethod("org.rdk.ScreenCapture", "sendScreenshot", params, result);
+    EXPECT_EQ(Core::ERROR_NONE, status);
+    EXPECT_TRUE(result["success"].Boolean());
+    TEST_LOG("After InvokeServiceMethod ***\n");
+    
+    uint32_t signalled = notify.WaitForRequestStatus(JSON_TIMEOUT, ScreenCapture_UploadComplete);
+    EXPECT_TRUE(signalled & ScreenCapture_UploadComplete);
+    
+    free(buffer);
+}
+
