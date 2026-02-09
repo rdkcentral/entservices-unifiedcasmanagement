@@ -50,8 +50,7 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/entservices-unifiedcasmanagement 
 -include ${GITHUB_WORKSPACE}/entservices-testframework/Tests/mocks/HdmiCec.h \
 -Wall -Werror -Wno-error=format \
 -Wl,-wrap,system -Wl,-wrap,popen -Wl,-wrap,syslog \
--DENABLE_TELEMETRY_LOGGING -DUSE_IARMBUS \
--DENABLE_DEEP_SLEEP -DHAS_API_SYSTEM \
+-DENABLE_TELEMETRY_LOGGING -DUSE_IARMBUS -DHAS_API_SYSTEM \
 -DUSE_THUNDER_R4 -DTHUNDER_VERSION=4 -DTHUNDER_VERSION_MAJOR=4 -DTHUNDER_VERSION_MINOR=4" \
 
 cmake --build build/entservices-unifiedcasmanagement --target install
