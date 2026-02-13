@@ -98,26 +98,26 @@ jobs:
           path: ThunderTools
           ref: R4.4.3
 
-      - name: Checkout entservices-mediaanddrm
+      - name: Checkout entservices-unifiedcasmanagement
         if: ${{ inputs.caller_source == 'local' }}
         uses: actions/checkout@v3
         with:
-          path: entservices-mediaanddrm
+          path: entservices-unifiedcasmanagement
 
-      - name: Checkout entservices-mediaanddrm-testframework
+      - name: Checkout entservices-unifiedcasmanagement-testframework
         if: ${{ inputs.caller_source == 'testframework' }}
         uses: actions/checkout@v3
         with:
-          repository: rdkcentral/entservices-mediaanddrm
-          path: entservices-mediaanddrm
-          ref: develop
+          repository: rdkcentral/entservices-unifiedcasmanagement
+          path: entservices-unifiedcasmanagement
+          ref: feature/RDKEMW-13628
 
       - name: Checkout entservices-testframework
         uses: actions/checkout@v3
         with:
           repository: rdkcentral/entservices-testframework
           path: entservices-testframework
-          ref: develop
+          ref: feature/MD_test
           token: ${{ secrets.RDKCM_RDKE }}
 
       - name: Checkout googletest
@@ -309,11 +309,11 @@ jobs:
           &&
           cmake --install build/mocks
 
-      - name: Build entservices-mediaanddrm
+      - name: Build entservices-unifiedcasmanagement
         run: >
           cmake
-          -S "$GITHUB_WORKSPACE/entservices-mediaanddrm"
-          -B build/entservices-mediaanddrm
+          -S "$GITHUB_WORKSPACE/entservices-unifiedcasmanagement"
+          -B build/entservices-unifiedcasmanagement
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr"
           -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/install/tools/cmake"
@@ -372,12 +372,7 @@ jobs:
           -DCMAKE_DISABLE_FIND_PACKAGE_Udev=ON
           -DCMAKE_DISABLE_FIND_PACKAGE_RFC=ON
           -DCMAKE_DISABLE_FIND_PACKAGE_RBus=ON
-          -DPLUGIN_TEXTTOSPEECH=ON
-          -DPLUGIN_TEXTTOSPEECH_MODE="Off"
-          -DPLUGIN_SCREENCAPTURE=ON
           -DPLUGIN_UNIFIEDCASMANAGEMENT=ON
-          -DPLUGIN_LINEARPLAYBACKCONTROL=ON
-          -DPLUGIN_PLAYERINFO=ON
           -DUSE_THUNDER_R4=ON
           -DPLUGIN_L2Tests=ON
           -DRDK_SERVICE_L2_TEST=ON
@@ -385,9 +380,9 @@ jobs:
           -DDS_FOUND=ON
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
           &&
-          cmake --build build/entservices-mediaanddrm -j8
+          cmake --build build/entservices-unifiedcasmanagement -j8
           &&
-          cmake --install build/entservices-mediaanddrm
+          cmake --install build/entservices-unifiedcasmanagement
 
       - name: Build entservices-testframework
         run: >
@@ -415,7 +410,7 @@ jobs:
           -I $GITHUB_WORKSPACE/entservices-testframework/Tests/headers/rdk/iarmmgrs-hal
           -I $GITHUB_WORKSPACE/entservices-testframework/Tests/headers/systemservices
           -I $GITHUB_WORKSPACE/entservices-testframework/Tests/headers/systemservices/proc
-          -I $GITHUB_WORKSPACE/entservices-mediaanddrm/helpers
+          -I $GITHUB_WORKSPACE/entservices-unifiedcasmanagement/helpers
           -I $GITHUB_WORKSPACE/install/usr/include
           -I $GITHUB_WORKSPACE/install/usr/include/WPEFramework
           -I ./usr/include/libdrm
@@ -606,12 +601,12 @@ jobs:
           &&
           lcov -c
           -o coverage.info
-          -d build/entservices-mediaanddrm
+          -d build/entservices-unifiedcasmanagement
           &&
           lcov
           -r coverage.info
           '/usr/include/*'
-          '*/build/entservices-mediaanddrm/_deps/*'
+          '*/build/entservices-unifiedcasmanagement/_deps/*'
           '*/build/entservices-entservices-testframework/_deps/*'
           '*/install/usr/include/*'
           '*/Tests/headers/*'
@@ -624,14 +619,14 @@ jobs:
           &&
           genhtml
           -o coverage
-          -t "entservices-mediaanddrm coverage"
+          -t "entservices-unifiedcasmanagement coverage"
           filtered_coverage.info
 
       - name: Upload artifacts
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-L2-mediaanddrm
+          name: artifacts-L2-unifiedcasmanagement
           path: |
             coverage/
             valgrind_log

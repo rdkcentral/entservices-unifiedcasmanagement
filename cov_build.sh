@@ -5,12 +5,12 @@ set -e
 GITHUB_WORKSPACE="${PWD}"
 ls -la ${GITHUB_WORKSPACE}
 ############################
-# Build entservices-inputoutput
+# Build entservices-unifiedcasmanagement
 echo "======================================================================================"
-echo "buliding entservices-inputoutput"
+echo "buliding entservices-unifiedcasmanagement"
 
 cd ${GITHUB_WORKSPACE}
-cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/entservices-inputoutput \
+cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/entservices-unifiedcasmanagement \
 -DUSE_THUNDER_R4=ON \
 -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr" \
 -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/install/tools/cmake" \
@@ -22,8 +22,7 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/entservices-inputoutput \
 -DRDK_SERVICES_COVERITY=ON \
 -DRDK_SERVICES_L1_TEST=ON \
 -DDS_FOUND=ON \
--DPLUGIN_SCREENCAPTURE=ON \
--DHAS_FRONT_PANEL=ON \
+-DPLUGIN_UNIFIEDCASMANAGEMENT=ON \
 -DHIDE_NON_EXTERNAL_SYMBOLS=OFF \
 -DCMAKE_CXX_FLAGS="-DEXCEPTIONS_ENABLE=ON \
 -I ${GITHUB_WORKSPACE}/entservices-testframework/Tests/headers \
@@ -51,12 +50,9 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/entservices-inputoutput \
 -include ${GITHUB_WORKSPACE}/entservices-testframework/Tests/mocks/HdmiCec.h \
 -Wall -Werror -Wno-error=format \
 -Wl,-wrap,system -Wl,-wrap,popen -Wl,-wrap,syslog \
--DENABLE_TELEMETRY_LOGGING -DUSE_IARMBUS \
--DENABLE_SYSTEM_GET_STORE_DEMO_LINK -DENABLE_DEEP_SLEEP \
--DENABLE_SET_WAKEUP_SRC_CONFIG -DENABLE_THERMAL_PROTECTION \
--DUSE_DRM_SCREENCAPTURE -DHAS_API_SYSTEM -DHAS_API_POWERSTATE \
--DHAS_RBUS -DDISABLE_SECURITY_TOKEN -DENABLE_DEVICE_MANUFACTURER_INFO -DUSE_THUNDER_R4 -DTHUNDER_VERSION=4 -DTHUNDER_VERSION_MAJOR=4 -DTHUNDER_VERSION_MINOR=4" \
+-DENABLE_TELEMETRY_LOGGING -DUSE_IARMBUS -DHAS_API_SYSTEM \
+-DUSE_THUNDER_R4 -DTHUNDER_VERSION=4 -DTHUNDER_VERSION_MAJOR=4 -DTHUNDER_VERSION_MINOR=4" \
 
-cmake --build build/entservices-inputoutput --target install
+cmake --build build/entservices-unifiedcasmanagement --target install
 echo "======================================================================================"
 exit 0
