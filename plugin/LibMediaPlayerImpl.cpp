@@ -20,7 +20,7 @@
 #include "UtilsJsonRpc.h"
 
 #include "LibMediaPlayerImpl.h"
-#include "UnifiedCASManagement.h"
+#include "UnifiedCASManagementImplementation.h"
 
 struct kv_pair
 {
@@ -230,9 +230,9 @@ void LibMediaPlayerImpl::eventCallBack(
     LibMediaPlayerImpl * instance = reinterpret_cast<LibMediaPlayerImpl *>(t_data);
     if(nullptr != instance)
     {
-        UnifiedCASManagement * session = reinterpret_cast<UnifiedCASManagement *>(instance->m_unifiedCasMgmt);
+        UnifiedCASManagementImplementation * session = reinterpret_cast<UnifiedCASManagementImplementation *>(instance->m_unifiedCasMgmt);
         LOGINFO("Received mediaPlayerEvent. casData is %s", t_payload->m_message.c_str());
-        session->event_data(t_payload->m_message, "PUBLIC");
+        session->event_data(t_payload->m_message, Exchange::IUnifiedCASManagement::DataSource::PUBLIC);
     }
     else
     {

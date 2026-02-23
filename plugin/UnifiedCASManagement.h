@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's LICENSE
 * file the following copyright and licenses apply:
 *
-* Copyright 2024 RDK Management
+* Copyright 2026 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@
 
 #include "Module.h"
 #include "MediaPlayer.h"
+#include <interfaces/IUnifiedCASManagement.h>
+#include <interfaces/json/JUnifiedCASManagement.h>
+#include <interfaces/json/JsonData_UnifiedCASManagement.h>
 
 namespace WPEFramework 
 {
@@ -31,43 +34,79 @@ namespace Plugin
 
 class UnifiedCASManagement : public PluginHost::IPlugin, public PluginHost::JSONRPC 
 {
+    private:
+        class Notification : public RPC::IRemoteConnection::INotification, public Exchange::IUnifiedCASManagement::INotification
+        {
+            private:
+                Notification() = delete;
+                Notification(const Notification&) = delete;
+                Notification& operator=(const Notification&) = delete;
+            public:
+                explicit Notification(UnifiedCASManagement* parent)
+                    : _parent(*parent)
+                {
+                    ASSERT(parent != nullptr);
+                }
 
-public:
-    UnifiedCASManagement();
-    UnifiedCASManagement(const UnifiedCASManagement& orig) = delete;
-    virtual ~UnifiedCASManagement();
+                virtual ~Notification()
+                {
+                }
 
-    BEGIN_INTERFACE_MAP(UnifiedCASManagement)
-    INTERFACE_ENTRY(PluginHost::IPlugin)
-    INTERFACE_ENTRY(PluginHost::IDispatcher)
-    END_INTERFACE_MAP
+                BEGIN_INTERFACE_MAP(Notification)
+                    INTERFACE_ENTRY(Exchange::IUnifiedCASManagement::INotification)
+                    INTERFACE_ENTRY(RPC::IRemoteConnection::INotification)
+                END_INTERFACE_MAP
 
-public/*members*/:
-    //   IPlugin methods
-    // -------------------------------------------------------------------------------------------------------
-    virtual const std::string Initialize(PluginHost::IShell *service) override;
-    virtual void Deinitialize(PluginHost::IShell *service) override;
-    virtual std::string Information() const override; 
+                void Activated(RPC::IRemoteConnection*) override
+                {
+                }
 
-    void event_data(const std::string& payload, const std::string& source);
-    static UnifiedCASManagement* _instance;
+                void Deactivated(RPC::IRemoteConnection *connection) override
+                {
+                    _parent.Deactivated(connection);
+                }
 
-    static const std::string METHOD_MANAGE;
-    static const std::string METHOD_UNMANAGE;
-    static const std::string METHOD_SEND;    
-    static const std::string EVENT_DATA;    
-        
-private/*registered methods*/:
-    void RegisterAll();
-    void UnregisterAll();
+                void OnDataReceived(const string& payload, const Exchange::IUnifiedCASManagement::DataSource& source) override
+                {
+                    Exchange::JUnifiedCASManagement::Event::OnDataReceived(_parent, payload, source);
+                }
 
-protected/*registered methods*/:
-    uint32_t manage(const JsonObject& params, JsonObject& response);
-    uint32_t unmanage(const JsonObject& params, JsonObject& response);
-    uint32_t send(const JsonObject& params, JsonObject& response);
+            private:
+                UnifiedCASManagement& _parent;
+        };
 
-protected/*members*/:
-    std::shared_ptr<MediaPlayer> m_player;
+    public:
+        UnifiedCASManagement(const UnifiedCASManagement&) = delete;
+        UnifiedCASManagement& operator=(const UnifiedCASManagement&) = delete;
+
+        UnifiedCASManagement();
+        virtual ~UnifiedCASManagement();
+
+        BEGIN_INTERFACE_MAP(UnifiedCASManagement)
+            INTERFACE_ENTRY(PluginHost::IPlugin)
+            INTERFACE_ENTRY(PluginHost::IDispatcher)
+            INTERFACE_AGGREGATE(Exchange::IUnifiedCASManagement, _UnifiedCASManagement)
+        END_INTERFACE_MAP
+
+        //  IPlugin methods
+        // ------------------------------------------------------------------------------------------
+        const string Initialize(PluginHost::IShell* service) override;
+        void Deinitialize(PluginHost::IShell* service) override;
+        string Information() const override;
+
+    public:
+        // Public method to trigger event notifications
+        void event_data(const string& payload, const Exchange::IUnifiedCASManagement::DataSource& source);
+
+    private:
+        void Deactivated(RPC::IRemoteConnection* connection);
+
+    private:
+        PluginHost::IShell* _service{};
+        uint32_t _connectionId{};
+        Exchange::IUnifiedCASManagement* _UnifiedCASManagement{};
+        Core::Sink<Notification> _UnifiedCASManagementNotification;    
+
         
 };
     
