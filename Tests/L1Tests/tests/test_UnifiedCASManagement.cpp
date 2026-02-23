@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "UnifiedCASManagement.h"
+#include "UnifiedCASManagementImplementation.h"
 #include "MediaPlayer.h"
 
 #include "ServiceMock.h"
@@ -8,6 +9,7 @@
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
+using namespace WPEFramework::Exchange;
 using ::testing::_;
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -23,53 +25,33 @@ public:
 };
 
 
-class UnifiedCASManagementTestable : public UnifiedCASManagement {
+class UnifiedCASManagementImplTestable : public UnifiedCASManagementImplementation {
 public:
     void AddRef() const override {}
     uint32_t Release() const override { return 0; }
 
-    void set_m_player(std::shared_ptr<MediaPlayer> m_player1){
-        m_player = m_player1;
+    void SetMockPlayer(std::shared_ptr<MediaPlayer> player){
+        SetMediaPlayer(player);
     }
-    
-    uint32_t call_manage(const JsonObject& params, JsonObject& response){
-        return manage(params, response);
-    }
-    uint32_t call_unmanage(const JsonObject& params, JsonObject& response){
-        return unmanage(params, response);
-    }
-    uint32_t call_send(const JsonObject& params, JsonObject& response){
-        return send(params, response);
-    }
-
-
-    using UnifiedCASManagement::event_data;
     
     std::string lastPayload;
-    std::string lastSource;
+    IUnifiedCASManagement::DataSource lastSource;
 
-    void EmitTestEvent(const std::string& payload, const std::string& source) {
+    void EmitTestEvent(const std::string& payload, const IUnifiedCASManagement::DataSource& source) {
         lastPayload = payload;
         lastSource = source;
-        UnifiedCASManagement::event_data(payload, source); // This will call the original sendNotify
+        event_data(payload, source);
     }
 };
 
-
-
-
-
 class UnifiedCASManagementTest : public ::testing::Test {
 protected:
-    UnifiedCASManagementTestable* plugin;
+    UnifiedCASManagementImplTestable* plugin;
     NiceMock<MockMediaPlayer>* mockPlayer;
     NiceMock<ServiceMock>* mockService;
-    
-    JsonObject params;
-    JsonObject response;
 
     void SetUp() override {
-        plugin = new UnifiedCASManagementTestable();
+        plugin = new UnifiedCASManagementImplTestable();
         mockService = new NiceMock<ServiceMock>();
         mockPlayer = new NiceMock<MockMediaPlayer>();
     }
@@ -87,122 +69,96 @@ TEST_F(UnifiedCASManagementTest, InstanceShouldBeCreated) {
     ASSERT_NE(plugin, nullptr);
 }
 
-TEST_F(UnifiedCASManagementTest, InfoReturnsEmptyString) {
-    EXPECT_EQ(plugin->Information(), "");
-}
-
-TEST_F(UnifiedCASManagementTest, PluginInitialize) {
-    EXPECT_EQ(plugin->Initialize(mockService), "");
-}
-
-TEST_F(UnifiedCASManagementTest, Deinitialize_ShouldSetInstanceToNullptr) {
-    // Set instance manually to simulate plugin being active
-    UnifiedCASManagement::_instance = plugin;
-
-    plugin->Deinitialize(mockService);  // Call Deinitialize
-
-    // Now the static _instance should be null
-    EXPECT_EQ(UnifiedCASManagement::_instance, nullptr);
-}
-
-
-TEST_F(UnifiedCASManagementTest, SendInvalidPlayer) {
-    JsonObject params, response;
-    params["payload"] = "payload";
-    params["source"] = "source";
-
-    EXPECT_EQ(plugin->call_send(params, response), true);
-}
-
 
 TEST_F(UnifiedCASManagementTest, Unmanage_ShouldSucceed_WhenPlayerClosesSuccessfully) {
     auto mock = std::make_shared<NiceMock<MockMediaPlayer>>();
-    plugin->set_m_player(mock);  // Assign mock to m_player
+    plugin->SetMockPlayer(mock);
 
     EXPECT_CALL(*mock, closeMediaPlayer())
-        .WillOnce(Return(true));  // Simulate success
+        .WillOnce(Return(true));
 
-
-    JsonObject params, response;
-    EXPECT_EQ(plugin->call_unmanage(params, response), 0);
-    EXPECT_TRUE(response["success"].Boolean());
+    bool success = false;
+    Core::hresult result = plugin->Unmanage(success);
+    
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_TRUE(success);
 }
 
 TEST_F(UnifiedCASManagementTest, Unmanage_ShouldFail_WhenPlayerFailsToClose) {
     auto mock = std::make_shared<NiceMock<MockMediaPlayer>>();
-    plugin->set_m_player(mock);  // Assign mock to m_player
+    plugin->SetMockPlayer(mock);
 
     EXPECT_CALL(*mock, closeMediaPlayer())
-        .WillOnce(Return(false));  // Simulate success
+        .WillOnce(Return(false));
 
-
-    JsonObject params, response;
-    EXPECT_EQ(plugin->call_unmanage(params, response), 1);
-    EXPECT_FALSE(response["success"].Boolean());
+    bool success = false;
+    Core::hresult result = plugin->Unmanage(success);
+    
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_FALSE(success);
 }
 
 TEST_F(UnifiedCASManagementTest, Unmanage_NoValidPlayer) {
     auto mock = nullptr;
-    plugin->set_m_player(mock);  // Assign mock to m_player
+    plugin->SetMockPlayer(mock);
 
-    JsonObject params, response;
-    EXPECT_EQ(plugin->call_unmanage(params, response), 1);
-    EXPECT_FALSE(response["success"].Boolean());
+    bool success = false;
+    Core::hresult result = plugin->Unmanage(success);
+    
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_FALSE(success);
 }
 
 
 
 TEST_F(UnifiedCASManagementTest, Manage_WithValidParams_ShouldSucceed) {
     auto mock = std::make_shared<NiceMock<MockMediaPlayer>>();
-    plugin->set_m_player(mock);
+    plugin->SetMockPlayer(mock);
 
     EXPECT_CALL(*mock, openMediaPlayer(_, "MANAGE_FULL")).WillOnce(Return(true));
 
-    JsonObject params;
-    params["mediaurl"] = "http://test.stream";
-    params["mode"] = "MODE_NONE";
-    params["manage"] = "MANAGE_FULL";
-    params["casinitdata"] = "initData";
-    params["casocdmid"] = "cas123";
-
-    JsonObject response;
-    EXPECT_EQ(plugin->call_manage(params, response), 0);
-    EXPECT_TRUE(response["success"].Boolean());
+    bool success = false;
+    Core::hresult result = plugin->Manage(
+        "http://test.stream",
+        IUnifiedCASManagement::TuneMode::MODE_NONE,
+        IUnifiedCASManagement::ManagementType::MANAGE_FULL,
+        "initData",
+        "cas123",
+        success
+    );
+    
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_TRUE(success);
 }
 
 TEST_F(UnifiedCASManagementTest, Send_RequestCASDataFails_ShouldReturnError) {
     auto mock = std::make_shared<NiceMock<MockMediaPlayer>>();
-    plugin->set_m_player(mock);
+    plugin->SetMockPlayer(mock);
 
     EXPECT_CALL(*mock, requestCASData(_))
-        .WillOnce(Return(false));  // Simulate failure
+        .WillOnce(Return(false));
 
-    JsonObject params;
-    params["payload"] = "test_payload";
-    params["source"] = "test_source";
-
-    JsonObject response;
-    EXPECT_EQ(plugin->call_send(params, response), 1);  // Because success = false
-    EXPECT_FALSE(response["success"].Boolean());
+    bool success = false;
+    Core::hresult result = plugin->Send(
+        "test_payload",
+        IUnifiedCASManagement::DataSource::PRIVATE,
+        success
+    );
+    
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_FALSE(success);
 }
 
 
-TEST_F(UnifiedCASManagementTest, InterfaceMapTest_IPlugin) {
-    PluginHost::IPlugin* ip = dynamic_cast<PluginHost::IPlugin*>(plugin);
-    ASSERT_NE(ip, nullptr); // Ensure interface is found
-    ip->Release(); // Required if QueryInterface returns AddRef-ed pointer
-}
-
-TEST_F(UnifiedCASManagementTest, InterfaceMapTest_IDispatcher) {
-    PluginHost::IDispatcher* dispatcher = dynamic_cast<PluginHost::IDispatcher*>(plugin);
-    ASSERT_NE(dispatcher, nullptr);
-    dispatcher->Release(); // Match reference count
+TEST_F(UnifiedCASManagementTest, InterfaceMapTest_IUnifiedCASManagement) {
+    Exchange::IUnifiedCASManagement* iface = dynamic_cast<Exchange::IUnifiedCASManagement*>(plugin);
+    ASSERT_NE(iface, nullptr);
 }
 
 TEST_F(UnifiedCASManagementTest, EventData_EmitsCorrectValues)
 {
     std::string payload = "testPayload";
-    std::string source = "testSource";
+    IUnifiedCASManagement::DataSource source = IUnifiedCASManagement::DataSource::PUBLIC;
 
     plugin->EmitTestEvent(payload, source);
 
