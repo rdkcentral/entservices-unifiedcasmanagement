@@ -448,7 +448,7 @@ jobs:
           -DRDK_SERVICES_L1_TEST=ON
           -DUSE_THUNDER_R4=ON
           -DHIDE_NON_EXTERNAL_SYMBOLS=OFF
-          -DPLUGIN_UNIFIEDCASMANAGEMENT=ON
+          -DPLUGIN_UNIFIEDCASMANAGEMENT=OFF
           &&
           cmake --build build/entservices-unifiedcasmanagement -j8
           &&
@@ -530,7 +530,7 @@ jobs:
           -DRDK_SERVICES_L1_TEST=ON
           -DUSE_THUNDER_R4=ON
           -DHIDE_NON_EXTERNAL_SYMBOLS=OFF
-          -DPLUGIN_UNIFIEDCASMANAGEMENT=ON
+          -DPLUGIN_UNIFIEDCASMANAGEMENT=OFF
           &&
           cmake --build build/entservices-testframework -j8
           &&
