@@ -36,6 +36,7 @@ const string WPEFramework::Plugin::UnifiedCASManagement::METHOD_UNMANAGE = "unma
 const string WPEFramework::Plugin::UnifiedCASManagement::METHOD_SEND = "send";
 const string WPEFramework::Plugin::UnifiedCASManagement::EVENT_DATA = "data";
 
+
 namespace WPEFramework
 {
 
