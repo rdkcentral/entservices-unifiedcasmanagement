@@ -27,6 +27,7 @@
 #include "UtilsJsonRpc.h"
 #include "UtilsIarm.h"
 
+#include <stdio.h>
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 2
 #define API_VERSION_NUMBER_PATCH 0
@@ -119,6 +120,7 @@ uint32_t UnifiedCASManagement::manage(const JsonObject& params, JsonObject& resp
     const std::string& casocdmid = params["casocdmid"].String();
 
     LOGINFO("media URL:%s, ocdmid = %s", mediaurl.c_str(), casocdmid.c_str());
+    printf("Test coverity workflow , %s");
 
     if(mode != "MODE_NONE")
     {

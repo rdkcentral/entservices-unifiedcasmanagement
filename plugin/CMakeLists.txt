@@ -66,6 +66,7 @@ add_definitions( -DRT_PLATFORM_LINUX=1 )
 set_target_properties(${MODULE_NAME} PROPERTIES
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES)
+target_compile_options(${MODULE_NAME} PRIVATE -Wno-error)
 
 if (RDK_SERVICE_L2_TEST)
     message ("L2 test Enabled")
