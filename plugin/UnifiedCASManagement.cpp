@@ -17,6 +17,7 @@
 * limitations under the License.
 **/
 
+
 #include <algorithm>
 #include <regex>
 #include "Module.h"
@@ -35,6 +36,7 @@ const string WPEFramework::Plugin::UnifiedCASManagement::METHOD_MANAGE = "manage
 const string WPEFramework::Plugin::UnifiedCASManagement::METHOD_UNMANAGE = "unmanage";
 const string WPEFramework::Plugin::UnifiedCASManagement::METHOD_SEND = "send";
 const string WPEFramework::Plugin::UnifiedCASManagement::EVENT_DATA = "data";
+
 
 namespace WPEFramework
 {
