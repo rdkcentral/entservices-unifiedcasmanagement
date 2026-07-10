@@ -18,5 +18,29 @@
 **/
 
 #include "Module.h"
+#include <interfaces/IUnifiedCASManagement.h>
 
 MODULE_NAME_DECLARATION(BUILD_REFERENCE)
+
+namespace WPEFramework {
+
+// Enum conversion tables for IUnifiedCASManagement enums
+ENUM_CONVERSION_BEGIN(Exchange::IUnifiedCASManagement::TuneMode)
+    { Exchange::IUnifiedCASManagement::TuneMode::MODE_NONE, _TXT("MODE_NONE") },
+    { Exchange::IUnifiedCASManagement::TuneMode::MODE_LIVE, _TXT("MODE_LIVE") },
+    { Exchange::IUnifiedCASManagement::TuneMode::MODE_RECORD, _TXT("MODE_RECORD") },
+    { Exchange::IUnifiedCASManagement::TuneMode::MODE_PLAYBACK, _TXT("MODE_PLAYBACK") },
+ENUM_CONVERSION_END(Exchange::IUnifiedCASManagement::TuneMode)
+
+ENUM_CONVERSION_BEGIN(Exchange::IUnifiedCASManagement::ManagementType)
+    { Exchange::IUnifiedCASManagement::ManagementType::MANAGE_FULL, _TXT("MANAGE_FULL") },
+    { Exchange::IUnifiedCASManagement::ManagementType::MANAGE_NO_PSI, _TXT("MANAGE_NO_PSI") },
+    { Exchange::IUnifiedCASManagement::ManagementType::MANAGE_NO_TUNER, _TXT("MANAGE_NO_TUNER") },
+ENUM_CONVERSION_END(Exchange::IUnifiedCASManagement::ManagementType)
+
+ENUM_CONVERSION_BEGIN(Exchange::IUnifiedCASManagement::DataSource)
+    { Exchange::IUnifiedCASManagement::DataSource::PUBLIC, _TXT("PUBLIC") },
+    { Exchange::IUnifiedCASManagement::DataSource::PRIVATE, _TXT("PRIVATE") },
+ENUM_CONVERSION_END(Exchange::IUnifiedCASManagement::DataSource)
+
+}

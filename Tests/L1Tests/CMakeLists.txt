@@ -101,11 +101,18 @@ macro(add_plugin_test plugin_name test_files)
     add_plugin_test_ex(${plugin_opt} "${test_files}" "../../${plugin_name}" "${NAMESPACE}${plugin_name}")
 endmacro()
 
+# Enable UnifiedCASManagement tests by default (standalone repo)
+option(PLUGIN_UNIFIEDCASMANAGEMENT "Build UnifiedCASManagement L1 tests" ON)
+
 # PLUGIN_UNIFIEDCASMANAGEMENT
 set (UNIFIEDCASMANAGEMENT_INC ../../plugin ../../helpers)
-add_plugin_test_ex(PLUGIN_UNIFIEDCASMANAGEMENT tests/test_UnifiedCASManagement.cpp "${UNIFIEDCASMANAGEMENT_INC}" "${NAMESPACE}UnifiedCASManagement")
+# Link against both the plugin and implementation libraries  
+add_plugin_test_ex(PLUGIN_UNIFIEDCASMANAGEMENT tests/test_UnifiedCASManagement.cpp "${UNIFIEDCASMANAGEMENT_INC}" "${NAMESPACE}UnifiedCASManagement;${NAMESPACE}UnifiedCASManagementImplementation")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
+
+# Define UNIT_TESTING to enable test helper methods
+target_compile_definitions(${MODULE_NAME} PRIVATE UNIT_TESTING)
 
 include_directories(${TEST_INC})
 

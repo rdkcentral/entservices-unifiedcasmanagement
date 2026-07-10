@@ -35,6 +35,9 @@ FetchContent_Declare(
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 FetchContent_MakeAvailable(googletest)
 
+# Enable UnifiedCASManagement tests by default (standalone repo)
+option(PLUGIN_UNIFIEDCASMANAGEMENT "Build UnifiedCASManagement L2 tests" ON)
+
 if(PLUGIN_UNIFIEDCASMANAGEMENT)
     set(SRC_FILES ${SRC_FILES} tests/UnifiedCASManagement_L2Test.cpp)
 endif()
@@ -47,6 +50,7 @@ set_target_properties(${MODULE_NAME} PROPERTIES
 
 target_compile_definitions(${MODULE_NAME}
             PRIVATE
+            UNIT_TESTING
             MODULE_NAME=Plugin_${PLUGIN_NAME}
             THUNDER_PORT="${THUNDER_PORT}")
 
